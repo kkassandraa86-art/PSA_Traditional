@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教養風格全方位評估 (Parenting Style Comprehensive Assessment)</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 引入 Babel 用於解析 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei", sans-serif; background-color: #f8fafc; color: #334155; }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .option-card { transition: all 0.2s ease; border: 1px solid #e2e8f0; }
+        .option-card:hover { border-color: #6366f1; background-color: #f8fafc; transform: translateY(-1px); }
+        .active-option { border-color: #4f46e5; background-color: #eef2ff; ring: 2px solid #6366f1; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        // --- 0. 圖標組件 (SVG) ---
+        const Icon = ({ name, className }) => {
+            const renderPath = () => {
+                switch(name) {
+                    case 'Activity': return <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>;
+                    case 'BookOpen': return <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>;
+                    case 'ShieldAlert': return <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M12 8v4 M12 16h.01"/>;
+                    case 'Heart': return <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>;
+                    case 'Ghost': return <path d="M9 10h.01 M15 10h.01 M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/>;
+                    case 'BrainCircuit': return <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>;
+                    case 'CheckCircle': return <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4L12 14.01l-3-3"/>;
+                    case 'AlertTriangle': return <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01"/>;
+                    case 'ArrowRight': return <path d="M5 12h14 M12 5l7 7-7 7"/>;
+                    case 'RefreshCw': return <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8 M21 3v5h-5 M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16 M3 21v-5h5"/>;
+                    case 'User': return <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>;
+                    case 'Target': return <g><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></g>;
+                    case 'Compass': return <g><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></g>;
+                    default: return <circle cx="12" cy="12" r="10" />;
+                }
+            };
+
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {renderPath()}
+                </svg>
+            );
+        };
+
+        // --- 1. DCR 雷達圖組件 ---
+        const SimpleRadarChart = ({ scores }) => {
+            const scale = 7; 
+            const center = 100;
+            const getPoint = (value, angle) => {
+                const rad = (angle * Math.PI) / 180;
+                const r = value * scale;
+                return { x: center + r * Math.cos(rad), y: center + r * Math.sin(rad) };
+            };
+            const pD = getPoint(scores.d, -90);
+            const pR = getPoint(scores.r, 30);
+            const pC = getPoint(scores.c, 150);
+            const gridPoints = [10, 7.5, 5, 2.5].map(v => {
+                const p1 = getPoint(v, -90); const p2 = getPoint(v, 30); const p3 = getPoint(v, 150);
+                return `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`;
+            });
+
+            return (
+                <svg width="200" height="180" className="mx-auto overflow-visible">
+                    {gridPoints.map((points, i) => <polygon key={i} points={points} fill="none" stroke="#e2e8f0" strokeWidth="1" />)}
+                    <line x1={center} y1={center} x2={getPoint(10, -90).x} y2={getPoint(10, -90).y} stroke="#cbd5e1" />
+                    <line x1={center} y1={center} x2={getPoint(10, 30).x} y2={getPoint(10, 30).y} stroke="#cbd5e1" />
+                    <line x1={center} y1={center} x2={getPoint(10, 150).x} y2={getPoint(10, 150).y} stroke="#cbd5e1" />
+                    <polygon points={`${pD.x},${pD.y} ${pR.x},${pR.y} ${pC.x},${pC.y}`} fill="rgba(79, 70, 229, 0.5)" stroke="#4f46e5" strokeWidth="2" />
+                    <text x={center} y="20" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">Demand (要求)</text>
+                    <text x="160" y="160" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">Respond (回應)</text>
+                    <text x="40" y="160" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">Control (管教)</text>
+                </svg>
+            );
+        };
+
+        // --- 2. 題庫配置 (18題 - 香港繁體 + 口語化選項) ---
+        const QUESTIONS = [
+            // ==================== 1. 學習與功能 (Learning) ====================
+            {
+                id: 'A1', category: 'learning', title: 'A1. 孩子考了好成績',
+                scenario: '孩子放學返嚟，好興奮咁遞張100分嘅試卷同「學習之星」嘅獎狀俾你。',
+                options: [
+                    { style: 'authoritative', action: '放低手頭上嘅野，由衷咁笑，認真睇試卷內容', verbal: '「睇嚟你為咗今次考試付出咗好多努力，比起100分我更加欣賞你嘅努力。你覺得今次邊個溫習方法最有效？我地記低佢。」', dcr: { d: 8, c: 8, r: 9 } },
+                    { style: 'authoritarian', action: '接過試卷快速掃描，指出一處瑕疵', verbal: '「考得唔錯，但唔好驕傲。你睇下啲字寫得有啲飄。保持謙虛，今晚整理下錯題本，下次要更穩陣啲。」', dcr: { d: 9, c: 9, r: 3 } },
+                    { style: 'permissive', action: '非常激動，即刻決定俾大額獎勵', verbal: '「嘩！太勁喇！我就知你係最聰明嘅！為咗慶祝，週末帶你去買你恨咗好耐嗰盒LEGO！」', dcr: { d: 2, c: 2, r: 9 } },
+                    { style: 'neglectful', action: '簡單望咗一眼，點點頭又繼續忙自己野', verbal: '「哦，幾好。放喺書枱啦，唔好整唔見。」', dcr: { d: 2, c: 1, r: 2 } }
+                ]
+            },
+            {
+                id: 'D4', category: 'learning', title: 'D4. 問題解決能力',
+                scenario: '你發現孩子嘅玩具車壞咗，佢自己試下用透明膠紙纏咗一圈，雖然郁到但個樣比較粗糙。',
+                options: [
+                    { style: 'authoritarian', action: '皺眉，覺得孩子破壞物件', verbal: '「搞到亂七八糟嘅？壞咗就話我知，唔好自己亂整。咁樣纏住好難睇，下次注意啲。」', dcr: { d: 8, c: 9, r: 2 } },
+                    { style: 'permissive', action: '心痛孩子用壞玩具，提出買新的', verbal: '「哎呀，爛咗就唔好玩喇，小心整親手。扔咗佢啦，媽咪聽日買個新嘅俾你，買個再靚啲嘅。」', dcr: { d: 1, c: 1, r: 9 } },
+                    { style: 'authoritative', action: '仔細觀察修補嘅地方，認可嘗試', verbal: '「雖然外觀唔夠完美，但你諗到用膠紙固定輪軸呢個方法幾有創意。需唔需要我幫手加固一下？」', dcr: { d: 7, c: 7, r: 9 } },
+                    { style: 'neglectful', action: '無干涉', verbal: '（見到孩子玩緊架爛車，無特別講咩，由得佢繼續玩）', dcr: { d: 1, c: 1, r: 2 } }
+                ]
+            },
+            {
+                id: 'D2', category: 'learning', title: 'D2. 自主權主張',
+                scenario: '孩子堅持要著配搭奇怪嘅衫返學，並提出想試下自己行返學（路程適中）。',
+                options: [
+                    { style: 'permissive', action: '雖然有顧慮但最終同意', verbal: '「如果你非要著呢件都得嘅。想自己返學嘅話路上一定要小心，唔好喺條路度掛住玩呀。」', dcr: { d: 1, c: 1, r: 8 } },
+                    { style: 'authoritative', action: '同意嘗試但設定條件', verbal: '「衫你可以自己話事。關於返學，我們可以試一次，但必須戴住電話手錶，去到校門口即刻Message我。」', dcr: { d: 8, c: 8, r: 8 } },
+                    { style: 'neglectful', action: '不過問細節', verbal: '「只要你唔遲到，唔好阻住我出門口就得。你自己搞掂啦。」', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'authoritarian', action: '拒絕並給出理由', verbal: '「著呢件唔啱身，去換校服。同埋你而家仲太細，一個人行唔安全，聽我話，我揸車送你。」', dcr: { d: 9, c: 9, r: 2 } }
+                ]
+            },
+            {
+                id: 'A5', category: 'learning', title: 'A5. 興趣與升學衝突',
+                scenario: '面臨升中壓力，你認為孩子學緊嘅畫畫班佔用太多時間，應該將精力放多啲喺奧數度。',
+                options: [
+                    { style: 'authoritative', action: '與孩子討論時間管理', verbal: '「升學壓力確實存在。如果你想繼續學畫畫，我地需要制定一個計劃，保證奧數功課可以按時完成。你覺得點？」', dcr: { d: 9, c: 8, r: 8 } },
+                    { style: 'neglectful', action: '表明不提供額外支持', verbal: '「想學咩你自己決定，但我無時間接送。只要唔影響正課成績，我無意見。」', dcr: { d: 3, c: 1, r: 2 } },
+                    { style: 'authoritarian', action: '做出調整安排', verbal: '「現階段重點係升學。畫畫以後仲有機會學，我幫你停咗畫畫班，報咗奧數精讀班，呢個對你升學有幫助。」', dcr: { d: 10, c: 10, r: 1 } },
+                    { style: 'permissive', action: '尊重孩子的喜好', verbal: '「既然你咁唔鍾意奧數，咁就唔勉強喇。保持心情愉快最重要，我地就繼續學畫畫啦。」', dcr: { d: 1, c: 1, r: 9 } }
+                ]
+            },
+            {
+                id: 'E1', category: 'learning', title: 'E1. 隱瞞與玩手機',
+                scenario: '深夜，你發現孩子哩喺被竇用手機打機，而之前佢話係用手機查資料。',
+                options: [
+                    { style: 'authoritarian', action: '收走手機並進行批評', verbal: '「呢種欺騙行為係原則問題。手機沒收一個月，希望你能記住呢個教訓，養成誠信嘅習慣。」', dcr: { d: 9, c: 10, r: 1 } },
+                    { style: 'permissive', action: '提醒休息', verbal: '「咁夜仲玩，對眼唔好架。係咪白天壓力太大？快啲訓啦，下次唔好捱夜喇。」', dcr: { d: 2, c: 2, r: 8 } },
+                    { style: 'neglectful', action: '催促睡覺', verbal: '「幾點呀仲唔訓？拿拿臨熄燈，聽日爬唔起身唔好怪我無叫你。」', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'authoritative', action: '暫時收回手機並約定談話', verbal: '「咁樣破壞咗我地嘅信任。手機我先收番一星期。聽日我地需要傾下，點解你選擇隱瞞而唔係直接話我知。」', dcr: { d: 8, c: 9, r: 6 } }
+                ]
+            },
+            {
+                id: 'A7', category: 'learning', title: 'A7. 輕易放棄承諾',
+                scenario: '孩子剛報了游水班，上咗三次之後覺得太攰太凍，話唔想再去。',
+                options: [
+                    { style: 'neglectful', action: '不強求', verbal: '「唔想去就唔去囉，慳番我都唔洗跟住折騰。」', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'authoritative', action: '承認困難但堅持完成', verbal: '「我知道水入面好凍，訓練亦好攰。我地可以諗辦法令過程舒服啲。但呢期堂我地已經承諾咗，建議堅持上完佢。」', dcr: { d: 8, c: 8, r: 9 } },
+                    { style: 'permissive', action: '關注孩子的身體感受', verbal: '「見你咁攰我都心痛。如果實在堅持唔到，我地就先停一停，唔好整親身體。」', dcr: { d: 1, c: 1, r: 9 } },
+                    { style: 'authoritarian', action: '強調意志力', verbal: '「這一點苦都吃不了以後能做什麼？既然報咗名就要堅持到底，唔好搵藉口半途而廢。」', dcr: { d: 9, c: 9, r: 1 } }
+                ]
+            },
+            // === 行為與界限 ===
+            {
+                id: 'B1_Pos', category: 'behavior', title: 'B1. 生活規範與自律',
+                scenario: '今日孩子主動刷咗牙，準時上床訓教，而且食晚飯嗰陣無離座。',
+                options: [
+                    { style: 'authoritarian', action: '提醒保持', verbal: '「今日表現唔錯，咁先似樣。刷牙要刷乾淨啲，聽日都要保持呢個狀態。」', dcr: { d: 9, c: 9, r: 2 } },
+                    { style: 'permissive', action: '給予獎勵', verbal: '「嘩！今日表現太乖喇！居然咁自覺。為咗獎勵你，訓之前可以聽多個故事！」', dcr: { d: 2, c: 1, r: 9 } },
+                    { style: 'authoritative', action: '給予肯定', verbal: '「我留意到你今日作息好有規律，將自己照顧得好好。見到你咁自律，我好放心。」', dcr: { d: 7, c: 6, r: 8 } },
+                    { style: 'neglectful', action: '不予置評', verbal: '（認為這是孩子分內的事，沒有特別說什麼）', dcr: { d: 1, c: 1, r: 1 } }
+                ]
+            },
+            {
+                id: 'B3', category: 'behavior', title: 'B3. 挫折耐受力',
+                scenario: '孩子砌咗好耐嘅積木倒塌咗，佢眼圈紅晒，但無發脾氣，而係深吸一口氣準備重新開始。',
+                options: [
+                    { style: 'authoritative', action: '陪伴在旁', verbal: '「積木倒咗確實幾令人失落。但我見到你無放棄，而係選擇再試一次，呢樣好唔容易。」', dcr: { d: 7, c: 6, r: 9 } },
+                    { style: 'neglectful', action: '未加干涉', verbal: '（在旁邊做自己的事，沒有注意到或者覺得沒必要介入）', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'authoritarian', action: '給予指導', verbal: '「下次地基打穩啲就唔容易倒喇。唔好難過，快啲重新砌好，做事要有效率。」', dcr: { d: 8, c: 7, r: 2 } },
+                    { style: 'permissive', action: '提供幫助', verbal: '「太可惜喇！唔好唔開心，我地一齊砌，媽咪幫你砌個更穩陣嘅。」', dcr: { d: 1, c: 2, r: 9 } }
+                ]
+            },
+            {
+                id: 'B5', category: 'behavior', title: 'B5. 尊重個人邊界',
+                scenario: '喺公園，孩子想玩人地架遙控車，佢主動行埋去問：「我可唔可以玩一下？」',
+                options: [
+                    { style: 'permissive', action: '幫孩子說話', verbal: '「去問下啦。嗰位小朋友，借俾我地寶寶玩下得唔得？佢會好小心架。」', dcr: { d: 2, c: 1, r: 8 } },
+                    { style: 'authoritarian', action: '叫住孩子', verbal: '「唔好去，屋企唔係有玩具咩？唔好隨便問人借野，咁樣無禮貌。」', dcr: { d: 8, c: 9, r: 1 } },
+                    { style: 'neglectful', action: '在旁邊休息', verbal: '（沒有特別注意孩子在跟誰說話，只要在視線範圍內就行）', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'authoritative', action: '觀察並肯定', verbal: '「你識得先問人意見，呢樣好有禮貌。如果對方唔方便借，我地都要接受，好無？」', dcr: { d: 8, c: 8, r: 8 } }
+                ]
+            },
+            {
+                id: 'E2', category: 'behavior', title: 'E2. 物慾攀比',
+                scenario: '孩子返屋企呻「全班同學都有名牌鞋，得我無」，扭計非要買一對昂貴嘅限量版波鞋。',
+                options: [
+                    { style: 'authoritative', action: '接納情緒，討論價值觀', verbal: '「我知道嗰對鞋好型，你亦好想要。但我地家嘅消費原則係量力而行。對鞋超出咗預算，我地可以睇下其他款。」', dcr: { d: 8, c: 9, r: 7 } },
+                    { style: 'authoritarian', action: '批評攀比心理', verbal: '「學生主要任務係讀書，唔係攀比著衫。對鞋著得舒服就得，唔好養成虛榮嘅習慣。」', dcr: { d: 9, c: 10, r: 1 } },
+                    { style: 'permissive', action: '滿足孩子願望', verbal: '「唔好唔開心，媽媽唔想你喺學校受委屈。既然大家都著，咁我地都買一對啦。」', dcr: { d: 1, c: 1, r: 9 } },
+                    { style: 'neglectful', action: '冷漠拒絕', verbal: '「無錢。同埋你而家對鞋都未爛，無必要買新嘅。」', dcr: { d: 2, c: 2, r: 1 } }
+                ]
+            },
+            {
+                id: 'B1_Neg', category: 'behavior', title: 'B1. 違規與對抗',
+                scenario: '晚飯時間，孩子一定要邊睇iPad邊食飯，你糾正佢，佢卻話「我就要睇，你管唔著」。',
+                options: [
+                    { style: 'neglectful', action: '迴避衝突', verbal: '（沒有繼續爭辯，自己吃完飯就離開了餐桌）', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'authoritative', action: '重申規則', verbal: '「而家係食飯時間，iPad需要收埋。你可以選擇好好食飯，或者唔食離座。但規矩唔可以變。」', dcr: { d: 8, c: 9, r: 6 } },
+                    { style: 'permissive', action: '嘗試氹佢', verbal: '「好好食飯對身體好。不如咁，你食多兩啖菜，我就俾你睇多十分鐘，好唔好？」', dcr: { d: 2, c: 2, r: 8 } },
+                    { style: 'authoritarian', action: '採取強制措施', verbal: '「點同長輩講野？既然唔聽話，咁今日呢餐飯唔洗食喇，去反省下。」', dcr: { d: 9, c: 10, r: 0 } }
+                ]
+            },
+            {
+                id: 'B7_Neg', category: 'behavior', title: 'B7. 撒謊掩蓋錯誤',
+                scenario: '孩子打爛咗花樽，卻話係隻貓整爛嘅。你好清楚佢喺度講大話。',
+                options: [
+                    { style: 'authoritarian', action: '嚴厲批評', verbal: '「唔單止做錯事仲講大話，呢個係品質問題。我最憎唔誠實嘅細路，今晚好好反省。」', dcr: { d: 9, c: 10, r: 0 } },
+                    { style: 'permissive', action: '幫忙化解尷尬', verbal: '「哦係隻貓整爛架，隻貓真百厭。唔緊要寶寶，唔好驚，媽咪收拾就得，下次小心啲。」', dcr: { d: 1, c: 1, r: 8 } },
+                    { style: 'authoritative', action: '引導說出真相', verbal: '「我知係你做嘅。花樽爛咗我地可以解決，但講大話會破壞信任。我希望你能誠實咁話我知發生咩事。」', dcr: { d: 9, c: 8, r: 7 } },
+                    { style: 'neglectful', action: '處理結果', verbal: '「哦。咁你掃乾淨啲碎片啦，注意安全。」', dcr: { d: 2, c: 1, r: 2 } }
+                ]
+            },
+            // === 情緒與關係 ===
+            {
+                id: 'C5', category: 'emotion', title: 'C5. 主動修復與道歉',
+                scenario: '孩子發完脾氣冷靜落嚟後，主動行埋嚟低頭話：「對唔住，我頭先唔應該大叫。」',
+                options: [
+                    { style: 'authoritative', action: '接受道歉並複盤', verbal: '「多謝你道歉，我接受。頭先咁樣大叫我都好難受。下次嬲嗰陣，我地可以試下換個方式表達。」', dcr: { d: 8, c: 7, r: 9 } },
+                    { style: 'authoritarian', action: '強調教訓', verbal: '「知錯就好。光道歉無用，關鍵係下次要記住控制情緒，唔好再犯。」', dcr: { d: 9, c: 8, r: 2 } },
+                    { style: 'neglectful', action: '簡單回應', verbal: '「嗯，得喇，去玩啦。」', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'permissive', action: '安慰孩子', verbal: '「唔緊要寶寶，媽媽都有唔啱嘅地方。唔好自責喇，食啲生果開心下。」', dcr: { d: 1, c: 1, r: 9 } }
+                ]
+            },
+            {
+                id: 'C6', category: 'emotion', title: 'C6. 主動分擔與利他',
+                scenario: '你做緊家務好攰，孩子主動過黎幫你拎碗筷，雖然動作有啲笨拙。',
+                options: [
+                    { style: 'permissive', action: '阻止孩子動手', verbal: '「放低等我嚟啦！你係細路仔，小心跌爛碗，去玩你自己野就得。」', dcr: { d: 1, c: 1, r: 9 } },
+                    { style: 'authoritative', action: '感謝並接受', verbal: '「多謝你！你嘅幫忙令我輕鬆咗好多。你好識觀察人地嘅需求。」', dcr: { d: 7, c: 6, r: 9 } },
+                    { style: 'authoritarian', action: '糾正動作', verbal: '「小心啲。拎碗要拎穩，唔好搖黎搖去。放喺嗰個位擺好。」', dcr: { d: 8, c: 9, r: 2 } },
+                    { style: 'neglectful', action: '默認接受', verbal: '（接過碗繼續幹活，沒有說什麼，認為這是應該的）', dcr: { d: 2, c: 1, r: 1 } }
+                ]
+            },
+            {
+                id: 'C7', category: 'emotion', title: 'C7. 對父母的關懷',
+                scenario: '你放工返屋企嘆咗啖氣，孩子行埋嚟問：「做咩呀？睇落好攰咁。」',
+                options: [
+                    { style: 'neglectful', action: '不願多說', verbal: '「無咩野，返工攰啫。你去寫功課啦。」', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'authoritarian', action: '維持家長形象', verbal: '「大人嘅事細路仔唔好理。你搞好你自己嘅學習就係對我最大嘅幫助。」', dcr: { d: 8, c: 9, r: 1 } },
+                    { style: 'permissive', action: '傾訴煩惱', verbal: '「哎呀工作太辛苦喇，好彩寶寶貼心，知心痛媽咪。媽咪得番你...」', dcr: { d: 1, c: 1, r: 9 } },
+                    { style: 'authoritative', action: '分享感受', verbal: '「多謝你關心。工作上遇到少少困難，有啲攰。不過休息下就得，見到你我就開心好多。」', dcr: { d: 6, c: 6, r: 9 } }
+                ]
+            },
+            {
+                id: 'C1', category: 'emotion', title: 'C1. 脆弱的表達',
+                scenario: '孩子考砸咗，返屋企喊住話：「我好蠢，我做唔到，我唔想讀喇。」',
+                options: [
+                    { style: 'authoritative', action: '共情並鼓勵', verbal: '「考得唔好係好難過嘅。黎抱抱。呢個只係說明我地未掌握方法，唔代表你蠢。等你喊完，我地一齊睇下點解決。」', dcr: { d: 8, c: 7, r: 9 } },
+                    { style: 'authoritarian', action: '激勵孩子', verbal: '「喊解決唔到問題。知道邊度不足就多練習。這點挫折都受不了，以後點面對更大嘅困難？」', dcr: { d: 9, c: 9, r: 1 } },
+                    { style: 'permissive', action: '安撫情緒', verbal: '「無事無事，唔讀喇。係題目太難，唔係你嘅錯。開心最緊要，唔好俾自己咁大壓力。」', dcr: { d: 1, c: 1, r: 9 } },
+                    { style: 'neglectful', action: '冷處理', verbal: '「唔好喊喇，好煩。一係靜啲，一係返房喊。」', dcr: { d: 2, c: 2, r: 1 } }
+                ]
+            },
+            {
+                id: 'C4', category: 'emotion', title: 'C4. 壓抑與退縮',
+                scenario: '孩子被批評後，強忍住眼淚唔喊，哩喺角落一聲唔出。',
+                options: [
+                    { style: 'permissive', action: '轉移注意力', verbal: '「哎呀唔好難過，食雪糕好唔好？睇卡通片？笑下啦。」', dcr: { d: 1, c: 1, r: 8 } },
+                    { style: 'authoritarian', action: '要求堅強', verbal: '「忍住眼淚。做錯事要諗點改，而唔係喺度喊苦喊忽。」', dcr: { d: 9, c: 10, r: 0 } },
+                    { style: 'authoritative', action: '鼓勵表達', verbal: '「你嘴上話無事，但我見你好難過。想喊就喊出黎，唔需要忍住。我會喺度陪你。」', dcr: { d: 6, c: 7, r: 9 } },
+                    { style: 'neglectful', action: '未察覺', verbal: '（繼續做自己的事，沒有注意到孩子的情緒變化）', dcr: { d: 1, c: 1, r: 1 } }
+                ]
+            },
+            {
+                id: 'C11', category: 'emotion', title: 'C11. 言語攻擊與恨意',
+                scenario: '因為你拒絕買玩具，孩子衝住你大叫：「我最憎你！你係世界上最壞嘅媽咪/爹地！」',
+                options: [
+                    { style: 'neglectful', action: '冷處理', verbal: '「隨便你。我都懶得理你。」（轉身離開）', dcr: { d: 1, c: 1, r: 1 } },
+                    { style: 'authoritative', action: '設定界限', verbal: '「你可以嬲，但『最壞嘅媽媽』呢句說話好傷人。我知道你係因為失望先咁講。我地先冷靜下，晏啲再傾。」', dcr: { d: 8, c: 9, r: 7 } },
+                    { style: 'authoritarian', action: '維護權威', verbal: '「你點可以咁同長輩講野？太無規矩喇！返房反省，直到你知道點樣尊重人為止。」', dcr: { d: 9, c: 10, r: 0 } },
+                    { style: 'permissive', action: '試圖挽回', verbal: '「寶寶唔好咁講，媽咪心都要碎... 如果我應承買俾你，你係咪就唔嬲？」', dcr: { d: 1, c: 1, r: 9 } }
+                ]
+            }
+        ];
+
+        // --- 3. 風格定義與建議 ---
+        const STYLES = {
+            authoritative: {
+                name: '權威型 (Authoritative)',
+                title: '溫和堅定的引路人',
+                desc: '您傾向於在給予孩子充分關愛和支持的同時，設立清晰的規則和界限。這種風格通常能培養出自信、自律且情緒穩定的孩子。',
+                strengths: ['能敏銳捕捉孩子情緒', '善於通過對話解決問題', '培養孩子的獨立思考'],
+                blindSpots: ['需要消耗大量情緒能量', '疲憊時難以堅持', '可能因為解釋過多而顯得囉嗦'],
+                practices: [
+                    { title: '五步情緒輔導法 (Emotion Coaching)', desc: '基於 Gottman 的研究：1.察覺情緒；2.視情緒為親密機會；3.共情確認感受；4.幫助標記情緒；5.劃定界限並解決問題。' },
+                    { title: '鷹架支持 (Scaffolding)', desc: '源自 Vygotsky 理論。不直接給答案，而是提供恰到好處的引導，隨著能力提升逐漸撤出支持。' },
+                    { title: '我-訊息 (I-Messages)', desc: '使用「當你...我覺得...因為...」的句式表達需求，而非指責（「你總是...」），減少防禦心理。' }
+                ],
+                color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-500', bar: 'bg-emerald-500', icon: 'BrainCircuit'
+            },
+            authoritarian: {
+                name: '專制型 (Authoritarian)',
+                title: '嚴格的管理者',
+                desc: '您看重規則、秩序和成就。相信嚴格管教能讓孩子少走彎路。這種風格能培養出執行力強的孩子，但可能壓抑個性。',
+                strengths: ['家庭規則清晰，界限分明', '孩子執行力強，行為規範', '危機時刻能迅速掌控局面'],
+                blindSpots: ['可能忽略孩子感受', '孩子可能出於恐懼服從', '容易引發青春期叛逆或討好型人格'],
+                practices: [
+                    { title: '先連結，後糾正 (Connect before Correct)', desc: 'Jane Nelsen 正面管教原則。批評前先用同理心（「我知道你好想玩」）建立連結。' },
+                    { title: '賦予有限選擇權 (Limited Choices)', desc: '從下命令轉變為給選擇：「你想先做數學定係先做英文？」這既保持了界限，又支持了孩子的自主性。' },
+                    { title: '確認情緒 (Validation)', desc: '即使行為是錯誤的，但情緒是真實的。學習確認並接納情緒，將行為與情緒分開處理。' }
+                ],
+                color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-500', bar: 'bg-red-500', icon: 'ShieldAlert'
+            },
+            permissive: {
+                name: '溺愛型 (Permissive)',
+                title: '無限包容的好友',
+                desc: '您給予孩子無條件的愛，不願看到孩子受苦。您可能缺乏設定界限的決心。孩子通常自尊心強，但可能缺乏自律。',
+                strengths: ['親子關係通常很親密，孩子願意分享', '孩子感受到了充分的愛與接納', '家庭氛圍輕鬆'],
+                blindSpots: ['難以堅持原則，容易被孩子的情緒勒索', '孩子可能缺乏自律，習慣以自我為中心', '在集體生活中可能遇到適應困難'],
+                practices: [
+                    { title: '溫和而堅定 (Kind AND Firm)', desc: '愛不代表妥協。拒絕時語氣溫和（Kind），但行動上不退讓（Firm）。' },
+                    { title: '自然後果 (Natural Consequences)', desc: '讓現實（如不吃飯會餓）來教導孩子，而不是家長的嘮叨。' },
+                    { title: '家庭會議 (Family Meetings)', desc: '在平靜時共同商定規則。當孩子參與制定規則時，他們更願意遵守。' }
+                ],
+                color: 'text-pink-700', bg: 'bg-pink-50', border: 'border-pink-500', bar: 'bg-pink-500', icon: 'Heart'
+            },
+            neglectful: {
+                name: '忽視型 (Neglectful)',
+                title: '缺位的旁觀者',
+                desc: '您可能傾向於「無為而治」，或者因為生活壓力而沒有精力深入參與育兒。您認為孩子應該自己成長。',
+                strengths: ['孩子可能被迫早熟', '獨立生存能力強'],
+                blindSpots: ['孩子有被遺棄感', '可能導致低自尊', '缺乏安全感'],
+                practices: [
+                    { title: '每天專屬15分鐘 (Special Time)', desc: '每天放低手機，全心全意陪孩子做一件他喜歡的事（Child-Directed Play），建立基本的連結。' },
+                    { title: '積極建設性回應', desc: '當孩子分享好消息時，給予熱情、詳細的回應，而不僅僅是「哦，幾好」。' },
+                    { title: '微小儀式 (Micro-Rituals)', desc: '建立如睡前閱讀、離別擁抱等微小儀式，增強安全感。' }
+                ],
+                color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-500', bar: 'bg-slate-500', icon: 'Ghost'
+            }
+        };
+
+        // --- 主組件 ---
+        function App() {
+            const [step, setStep] = useState('intro');
+            const [qIndex, setQIndex] = useState(0);
+            const [answers, setAnswers] = useState([]);
+
+            const currentQuestion = useMemo(() => {
+                if (qIndex >= QUESTIONS.length) return null;
+                const q = QUESTIONS[qIndex];
+                const shuffledOptions = [...q.options].sort(() => Math.random() - 0.5);
+                return { ...q, options: shuffledOptions };
+            }, [qIndex]);
+
+            const handleSelect = (option) => {
+                const newAnswers = [...answers, { ...option, category: currentQuestion.category }];
+                setAnswers(newAnswers);
+                if (qIndex < QUESTIONS.length - 1) {
+                    setTimeout(() => setQIndex(qIndex + 1), 250);
+                } else {
+                    setTimeout(() => setStep('result'), 500);
+                }
+            };
+
+            const calculateResult = () => {
+                const counts = { authoritative: 0, authoritarian: 0, permissive: 0, neglectful: 0 };
+                let totalD = 0, totalC = 0, totalR = 0;
+                answers.forEach(a => {
+                    counts[a.style]++;
+                    totalD += a.dcr.d;
+                    totalC += a.dcr.c;
+                    totalR += a.dcr.r;
+                });
+                const maxCount = Math.max(...Object.values(counts));
+                const priority = ['authoritative', 'authoritarian', 'permissive', 'neglectful'];
+                const dominantKey = priority.find(key => counts[key] === maxCount);
+                const count = answers.length;
+                return {
+                    dominantStyle: STYLES[dominantKey],
+                    scores: { d: (totalD / count).toFixed(1), c: (totalC / count).toFixed(1), r: (totalR / count).toFixed(1) },
+                    counts
+                };
+            };
+
+            const restart = () => { setStep('intro'); setQIndex(0); setAnswers([]); };
+
+            if (step === 'intro') return (
+                <div className="min-h-screen flex items-center justify-center p-4 fade-in">
+                    <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center border-t-8 border-indigo-600">
+                        <div className="mb-6 flex justify-center"><div className="bg-indigo-100 p-4 rounded-full"><Icon name="Activity" className="w-12 h-12 text-indigo-600" /></div></div>
+                        <h1 className="text-2xl font-bold text-slate-900 mb-2">教養風格場景評估</h1>
+                        <p className="text-slate-500 mb-8 text-xs uppercase tracking-widest font-bold">Parenting Style Comprehensive Assessment</p>
+                        <div className="bg-slate-50 rounded-xl p-5 mb-8 text-left space-y-4">
+                            <div className="flex items-start gap-3"><Icon name="Target" className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" /><p className="text-sm text-slate-600"><strong>18個真實場景：</strong> 覆蓋學習、行為及情緒三大領域。</p></div>
+                            <div className="flex items-start gap-3"><Icon name="Compass" className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" /><p className="text-sm text-slate-600"><strong>去標籤化選項：</strong> 結合肢體語言與口頭回應，還原真實直覺。</p></div>
+                            <div className="flex items-start gap-3"><Icon name="BookOpen" className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" /><p className="text-sm text-slate-600"><strong>DCR 專業解碼：</strong> 提供深度分析與專業行動指南。</p></div>
+                        </div>
+                        <button onClick={() => setStep('quiz')} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 group">開始評估 <Icon name="ArrowRight" className="w-5 h-5" /></button>
+                    </div>
+                </div>
+            );
+
+            if (step === 'quiz') {
+                const q = currentQuestion;
+                return (
+                    <div className="min-h-screen py-6 px-4 fade-in">
+                        <div className="max-w-2xl mx-auto">
+                            <div className="flex justify-between items-end mb-2 px-1">
+                                <span className="text-xs font-bold text-slate-400 uppercase">Question {qIndex + 1} / {QUESTIONS.length}</span>
+                                <span className={`text-xs font-bold px-2 py-1 rounded-md uppercase ${q.category === 'learning' ? 'bg-blue-100 text-blue-600' : q.category === 'behavior' ? 'bg-orange-100 text-orange-600' : 'bg-purple-100 text-purple-600'}`}>{q.category === 'learning' ? '學習與功能' : q.category === 'behavior' ? '行為與界限' : '情緒與關係'}</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-2 rounded-full mb-6 overflow-hidden"><div className="bg-indigo-600 h-full transition-all duration-300 ease-out" style={{ width: `${((qIndex + 1) / QUESTIONS.length) * 100}%` }} /></div>
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+                                <div className={`p-6 text-white ${q.category === 'learning' ? 'bg-blue-600' : q.category === 'behavior' ? 'bg-orange-500' : 'bg-purple-600'}`}>
+                                    <h2 className="text-lg font-bold flex items-center gap-2 mb-2"><Icon name={q.category === 'learning' ? 'BookOpen' : q.category === 'behavior' ? 'ShieldAlert' : 'Heart'} className="w-5 h-5 opacity-90" />{q.title}</h2>
+                                </div>
+                                <div className="p-6 md:p-8 bg-slate-50"><p className="text-lg font-medium text-slate-800 leading-relaxed">{q.scenario}</p></div>
+                            </div>
+                            <div className="grid gap-4">
+                                {q.options.map((opt, idx) => (
+                                    <button key={idx} onClick={() => handleSelect(opt)} className="group relative bg-white p-5 rounded-xl border-2 border-transparent hover:border-indigo-500 hover:shadow-lg transition-all text-left overflow-hidden active:scale-[0.99] card-hover">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-indigo-500 transition-colors"></div>
+                                        <div className="pl-4">
+                                            <div className="mb-2 text-sm text-slate-500 font-medium flex items-center gap-2"><Icon name="User" className="w-4 h-4 text-slate-400" /><span className="italic">{opt.action}</span></div>
+                                            <div className="text-slate-800 font-medium leading-relaxed group-hover:text-indigo-900">{opt.verbal}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (step === 'result') {
+                const { dominantStyle, scores, counts } = calculateResult();
+                const totalQ = QUESTIONS.length;
+                return (
+                    <div className="min-h-screen py-10 px-4 fade-in">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="text-center mb-10"><h1 className="text-3xl font-bold text-slate-900 mb-2">評估報告</h1><p className="text-slate-500">Parenting Style Comprehensive Report</p></div>
+                            <div className="grid lg:grid-cols-2 gap-6 mb-8">
+                                <div className={`bg-white rounded-3xl shadow-lg p-8 border-t-8 ${dominantStyle.border} relative overflow-hidden flex flex-col`}>
+                                    <div className={`absolute top-0 right-0 p-4 opacity-10 ${dominantStyle.color}`}><Icon name={dominantStyle.icon} className="w-32 h-32" /></div>
+                                    <div className="relative z-10 flex-1">
+                                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">主導風格</div>
+                                        <h2 className={`text-3xl font-bold ${dominantStyle.color} mb-2`}>{dominantStyle.title}</h2>
+                                        <div className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${dominantStyle.bg} ${dominantStyle.color} mb-6`}>{dominantStyle.name}</div>
+                                        <p className="text-slate-600 leading-relaxed text-sm md:text-base mb-6">{dominantStyle.desc}</p>
+                                    </div>
+                                    <div className="pt-6 border-t border-slate-100">
+                                        <div className="flex h-3 rounded-full overflow-hidden mb-2 bg-slate-100">
+                                            {Object.entries(STYLES).map(([key, style]) => {
+                                                const percent = (counts[key] / totalQ) * 100;
+                                                if(percent === 0) return null;
+                                                return <div key={key} style={{width: `${percent}%`}} className={`${style.bar} h-full`} title={style.name} />
+                                            })}
+                                        </div>
+                                        <div className="flex justify-between text-xs text-slate-400 font-medium"><span>風格構成分佈</span><span>{Math.round((counts[Object.keys(counts).find(k => STYLES[k].name === dominantStyle.name)] / totalQ) * 100)}% 吻合度</span></div>
+                                    </div>
+                                </div>
+                                <div className="bg-white rounded-3xl shadow-lg p-8 flex flex-col items-center justify-center">
+                                    <div className="w-full flex justify-between items-center mb-4"><h3 className="font-bold text-slate-700 flex items-center gap-2"><Icon name="Compass" className="w-5 h-5 text-indigo-500" />DCR 維度解碼</h3></div>
+                                    <SimpleRadarChart scores={scores} />
+                                    <div className="grid grid-cols-3 gap-3 w-full mt-4 text-center">
+                                        <div className="p-3 bg-blue-50 rounded-xl border border-blue-100"><div className="text-xs text-blue-500 font-bold uppercase mb-1">Demand</div><div className="text-xl font-bold text-blue-700">{scores.d}</div></div>
+                                        <div className="p-3 bg-orange-50 rounded-xl border border-orange-100"><div className="text-xs text-orange-500 font-bold uppercase mb-1">Control</div><div className="text-xl font-bold text-orange-700">{scores.c}</div></div>
+                                        <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100"><div className="text-xs text-emerald-500 font-bold uppercase mb-1">Respond</div><div className="text-xl font-bold text-emerald-700">{scores.r}</div></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-6 mb-8">
+                                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                                    <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><Icon name="CheckCircle" className="w-5 h-5 text-emerald-500" />您的育兒優勢</h3>
+                                    <ul className="space-y-3">{dominantStyle.strengths.map((item, i) => (<li key={i} className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 mt-2" />{item}</li>))}</ul>
+                                </div>
+                                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                                    <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><Icon name="AlertTriangle" className="w-5 h-5 text-amber-500" />潛在盲點</h3>
+                                    <ul className="space-y-3">{dominantStyle.blindSpots.map((item, i) => (<li key={i} className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"><div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 mt-2" />{item}</li>))}</ul>
+                                </div>
+                            </div>
+                            <div className="bg-indigo-50 rounded-3xl p-8 border border-indigo-100">
+                                <h3 className="text-xl font-bold text-indigo-900 mb-6 flex items-center gap-2"><Icon name="Target" className="w-6 h-6 text-indigo-600" />專屬成長建議 (Practices)</h3>
+                                <div className="grid md:grid-cols-1 gap-4">
+                                    {dominantStyle.practices.map((practice, i) => (
+                                        <div key={i} className="bg-white p-5 rounded-2xl shadow-sm"><h4 className="font-bold text-indigo-700 mb-2">{practice.title}</h4><p className="text-sm text-slate-600 leading-relaxed">{practice.desc}</p></div>
+                                    ))}
+                                </div>
+                                <div className="mt-8 text-left text-xs text-slate-400 border-t border-indigo-100 pt-4">
+                                    <p className="font-bold mb-2">References (APA 7):</p>
+                                    <ul className="space-y-1 list-disc pl-4">
+                                        <li>Baumrind, D. (1991). The influence of parenting style on adolescent competence and substance use. <em>Journal of Early Adolescence, 11</em>(1), 56–95.</li>
+                                        <li>Deci, E. L., & Ryan, R. M. (2000). The "what" and "why" of goal pursuits: Human needs and the self-determination of behavior. <em>Psychological Inquiry, 11</em>(4), 227-268.</li>
+                                        <li>Dweck, C. S. (2006). <em>Mindset: The new psychology of success</em>. Random House.</li>
+                                        <li>Gottman, J. M., & DeClaire, J. (1997). <em>The heart of parenting: Raising an emotionally intelligent child</em>. Simon & Schuster.</li>
+                                        <li>Nelsen, J. (2006). <em>Positive discipline</em>. Ballantine Books.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="text-center py-12">
+                                <button onClick={restart} className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-white border-2 border-slate-200 text-slate-600 font-bold hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"><Icon name="RefreshCw" className="w-4 h-4" />重新評估</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+            return null;
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
